@@ -43,6 +43,31 @@ python main.py
 | `MAX_CONCURRENT_JOBS` | Bir vaqtdagi generatsiyalar soni |
 | `LIBREOFFICE_PATH` | `soffice` yo'li (ixtiyoriy) |
 
+## Heroku'ga joylash
+
+Bot `worker` jarayoni sifatida ishlaydi (`Procfile`), ma'lumotlar Heroku Postgres'da saqlanadi.
+Heroku fayl tizimi har restartda tozalanadi, shuning uchun SQLite serverda ishlatilmaydi.
+
+```bash
+heroku addons:create heroku-postgresql:essential-0 -a slaydcraft   # DATABASE_URL avtomatik qo'shiladi
+heroku config:set BOT_TOKEN=... GEMINI_API_KEY=... ADMIN_IDS=... ADMIN_CHAT_ID=... \
+    PAYMENT_CARD_NUMBER="8600 ...." PAYMENT_CARD_HOLDER="Ism Familiya" SUPPORT_USERNAME=... -a slaydcraft
+git push heroku main
+heroku ps:scale web=0 worker=1 -a slaydcraft
+heroku logs --tail -a slaydcraft
+```
+
+Lokal SQLite ma'lumotlarini Postgres'ga bir marta ko'chirish:
+
+```bash
+DATABASE_URL=$(heroku config:get DATABASE_URL -a slaydcraft) python scripts/migrate_sqlite_to_postgres.py
+```
+
+Muhim: bot bir vaqtda faqat bitta joyda ishlashi mumkin. Heroku'da ishlayotganda lokal `python main.py`
+ishga tushirilmasin (Telegram `Conflict` xatosi beradi).
+
+PDF uchun kirill yozuvini qo'llab-quvvatlaydigan Liberation shriftlari `assets/fonts` da (SIL OFL litsenziyasi).
+
 ### Serverda (Linux) yuqori sifatli PDF uchun
 
 ```bash

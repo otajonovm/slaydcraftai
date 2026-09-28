@@ -1,10 +1,11 @@
 import json
 import logging
+import ssl
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import event, func, select, update
+from sqlalchemy import event, func, make_url, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -20,6 +21,9 @@ def _today_start_utc() -> datetime:
 
 def _prepare_schema(conn) -> None:
     """Create tables and migrate the pre-billing (aiosqlite) schema if it is present."""
+    if conn.dialect.name != "sqlite":
+        Base.metadata.create_all(conn)
+        return
     columns = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)").fetchall()]
     legacy = "user_id" in columns and "telegram_id" not in columns
     has_legacy_generations = False
@@ -62,24 +66,39 @@ def _prepare_schema(conn) -> None:
 
 
 class Database:
-    def __init__(self, path: Path) -> None:
-        self.path = path
+    def __init__(self, url: str) -> None:
+        self.url = make_url(url)
+        self.is_sqlite = self.url.get_backend_name() == "sqlite"
         self._engine: AsyncEngine | None = None
         self._sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
     # --------------------------------------------------------------- lifecycle
 
-    async def connect(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._engine = create_async_engine(f"sqlite+aiosqlite:///{self.path.as_posix()}", pool_pre_ping=True)
+    def _engine_kwargs(self) -> dict[str, Any]:
+        if self.is_sqlite:
+            if self.url.database:
+                Path(self.url.database).parent.mkdir(parents=True, exist_ok=True)
+            return {"pool_pre_ping": True}
+        kwargs: dict[str, Any] = {"pool_pre_ping": True, "pool_size": 5, "max_overflow": 5, "pool_recycle": 1800}
+        if self.url.host not in (None, "localhost", "127.0.0.1"):
+            # Heroku Postgres requires TLS but uses certificates that are not publicly verifiable.
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            kwargs["connect_args"] = {"ssl": ctx}
+        return kwargs
 
-        @event.listens_for(self._engine.sync_engine, "connect")
-        def _sqlite_pragmas(dbapi_conn, _record) -> None:
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.execute("PRAGMA busy_timeout=5000")
-            cursor.close()
+    async def connect(self) -> None:
+        self._engine = create_async_engine(self.url, **self._engine_kwargs())
+
+        if self.is_sqlite:
+            @event.listens_for(self._engine.sync_engine, "connect")
+            def _sqlite_pragmas(dbapi_conn, _record) -> None:
+                cursor = dbapi_conn.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.execute("PRAGMA busy_timeout=5000")
+                cursor.close()
 
         async with self._engine.begin() as conn:
             await conn.run_sync(_prepare_schema)
@@ -91,7 +110,10 @@ class Database:
                 .where(GenerationHistory.status == "processing")
                 .values(status="failed", error="interrupted", finished_at=utcnow())
             )
-        logger.info("Database connected: %s", self.path)
+        logger.info(
+            "Database connected: %s",
+            f"sqlite ({self.url.database})" if self.is_sqlite else f"postgresql ({self.url.host}/{self.url.database})",
+        )
 
     async def close(self) -> None:
         if self._engine is not None:

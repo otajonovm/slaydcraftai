@@ -37,6 +37,18 @@ def _int(name: str, default: int) -> int:
         return default
 
 
+def _database_url(sqlite_path: Path) -> str:
+    """DATABASE_URL (Heroku Postgres) wins; otherwise a local SQLite file is used."""
+    raw = _str("DATABASE_URL")
+    if not raw:
+        return f"sqlite+aiosqlite:///{sqlite_path.as_posix()}"
+    for prefix in ("postgres://", "postgresql://"):
+        if raw.startswith(prefix):
+            raw = "postgresql+asyncpg://" + raw[len(prefix):]
+            break
+    return raw.split("?", 1)[0] if raw.startswith("postgresql+asyncpg://") else raw
+
+
 def _bool(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -54,6 +66,7 @@ class Settings:
     admin_chat_id: int | None
     max_concurrent_jobs: int
     database_path: Path
+    database_url: str
     temp_dir: Path
     libreoffice_path: str
     log_level: str
@@ -84,6 +97,7 @@ def load_settings() -> Settings:
     if not gemini_api_key:
         raise RuntimeError("GEMINI_API_KEY .env faylida ko'rsatilmagan")
 
+    database_path = _path(_str("DATABASE_PATH", "data/slidecraft.db"))
     admin_ids = _int_set(_str("ADMIN_IDS"))
     admin_chat_raw = _str("ADMIN_CHAT_ID")
     if admin_chat_raw.lstrip("-").isdigit():
@@ -99,7 +113,8 @@ def load_settings() -> Settings:
         admin_ids=admin_ids,
         admin_chat_id=admin_chat_id,
         max_concurrent_jobs=max(1, _int("MAX_CONCURRENT_JOBS", 3)),
-        database_path=_path(_str("DATABASE_PATH", "data/slidecraft.db")),
+        database_path=database_path,
+        database_url=_database_url(database_path),
         temp_dir=_path(_str("TEMP_DIR", "data/tmp")),
         libreoffice_path=_str("LIBREOFFICE_PATH"),
         log_level=_str("LOG_LEVEL", "INFO").upper() or "INFO",

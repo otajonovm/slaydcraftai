@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, false
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -32,8 +32,8 @@ class User(Base):
     # Trial / referral credits: documents get a watermark on the last page.
     free_credits: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     referrer_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
-    is_premium: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
-    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    is_premium: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
