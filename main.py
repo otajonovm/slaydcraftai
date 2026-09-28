@@ -52,7 +52,7 @@ def setup_logging() -> None:
 async def main() -> None:
     setup_logging()
 
-    db = Database(settings.database_url, schema=settings.db_schema)
+    db = Database(settings.database_url)
     await db.connect()
 
     gemini = GeminiService(

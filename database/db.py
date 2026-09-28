@@ -66,11 +66,9 @@ def _prepare_schema(conn) -> None:
 
 
 class Database:
-    def __init__(self, url: str, schema: str | None = None) -> None:
+    def __init__(self, url: str) -> None:
         self.url = make_url(url)
         self.is_sqlite = self.url.get_backend_name() == "sqlite"
-        # Separate PostgreSQL schema per bot lets several bots share one database without sharing data.
-        self.schema = None if self.is_sqlite else schema
         self._engine: AsyncEngine | None = None
         self._sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
@@ -81,19 +79,13 @@ class Database:
             if self.url.database:
                 Path(self.url.database).parent.mkdir(parents=True, exist_ok=True)
             return {"pool_pre_ping": True}
-        # Heroku Postgres Essential allows 20 connections in total, shared by every bot using the database.
-        kwargs: dict[str, Any] = {"pool_pre_ping": True, "pool_size": 3, "max_overflow": 3, "pool_recycle": 1800}
-        connect_args: dict[str, Any] = {}
+        kwargs: dict[str, Any] = {"pool_pre_ping": True, "pool_size": 5, "max_overflow": 5, "pool_recycle": 1800}
         if self.url.host not in (None, "localhost", "127.0.0.1"):
             # Heroku Postgres requires TLS but uses certificates that are not publicly verifiable.
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
-            connect_args["ssl"] = ctx
-        if self.schema:
-            connect_args["server_settings"] = {"search_path": self.schema}
-        if connect_args:
-            kwargs["connect_args"] = connect_args
+            kwargs["connect_args"] = {"ssl": ctx}
         return kwargs
 
     async def connect(self) -> None:
@@ -109,8 +101,6 @@ class Database:
                 cursor.close()
 
         async with self._engine.begin() as conn:
-            if self.schema:
-                await conn.exec_driver_sql(f'CREATE SCHEMA IF NOT EXISTS "{self.schema}"')
             await conn.run_sync(_prepare_schema)
         self._sessionmaker = async_sessionmaker(self._engine, expire_on_commit=False)
 
@@ -122,8 +112,7 @@ class Database:
             )
         logger.info(
             "Database connected: %s",
-            f"sqlite ({self.url.database})" if self.is_sqlite
-            else f"postgresql ({self.url.host}/{self.url.database}, schema={self.schema or 'public'})",
+            f"sqlite ({self.url.database})" if self.is_sqlite else f"postgresql ({self.url.host}/{self.url.database})",
         )
 
     async def close(self) -> None:

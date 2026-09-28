@@ -1,5 +1,4 @@
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -68,7 +67,6 @@ class Settings:
     max_concurrent_jobs: int
     database_path: Path
     database_url: str
-    db_schema: str | None
     temp_dir: Path
     libreoffice_path: str
     log_level: str
@@ -100,9 +98,6 @@ def load_settings() -> Settings:
         raise RuntimeError("GEMINI_API_KEY .env faylida ko'rsatilmagan")
 
     database_path = _path(_str("DATABASE_PATH", "data/slidecraft.db"))
-    db_schema = _str("DB_SCHEMA").lower() or None
-    if db_schema and not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", db_schema):
-        raise RuntimeError("DB_SCHEMA faqat lotin harflari, raqamlar va _ dan iborat bo'lishi kerak")
     admin_ids = _int_set(_str("ADMIN_IDS"))
     admin_chat_raw = _str("ADMIN_CHAT_ID")
     if admin_chat_raw.lstrip("-").isdigit():
@@ -120,7 +115,6 @@ def load_settings() -> Settings:
         max_concurrent_jobs=max(1, _int("MAX_CONCURRENT_JOBS", 3)),
         database_path=database_path,
         database_url=_database_url(database_path),
-        db_schema=db_schema,
         temp_dir=_path(_str("TEMP_DIR", "data/tmp")),
         libreoffice_path=_str("LIBREOFFICE_PATH"),
         log_level=_str("LOG_LEVEL", "INFO").upper() or "INFO",
