@@ -3,6 +3,7 @@ import logging
 import re
 import shutil
 import tempfile
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
@@ -105,6 +106,24 @@ async def send_charge_report(
             await bot.send_message(chat_id, text + "\n\nYana biror narsa tayyorlaymizmi? 👇", reply_markup=main_menu_kb())
     except TelegramAPIError:
         logger.warning("Cannot send charge report to %s", chat_id)
+
+
+async def record_sent_file(db: Database, generation_id: int, user_id: int, sent: Message, path: Path) -> None:
+    """Stores the Telegram file_id of a sent document so it shows up in the Mini App history."""
+    if sent.document is None:
+        return
+    try:
+        await db.add_generated_file(
+            uuid.uuid4().hex,
+            generation_id,
+            user_id,
+            path.name,
+            path.suffix.lstrip(".").lower(),
+            sent.document.file_size or path.stat().st_size,
+            sent.document.file_id,
+        )
+    except Exception:
+        logger.exception("Cannot record file %s of generation %s", path.name, generation_id)
 
 
 def support_line() -> str:

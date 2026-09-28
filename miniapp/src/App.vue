@@ -10,6 +10,7 @@ import TariffModal from './components/TariffModal.vue'
 import { useAppStore } from './stores/app'
 import { BOT_USERNAME, isDemoMode } from './services/api'
 import { backButton, haptic, mainButton, onThemeChange, openTelegramLink } from './services/telegram'
+import type { Tariff } from './types'
 
 const store = useAppStore()
 
@@ -51,10 +52,11 @@ watch(
 
 // ------------------------------------------------------------ actions
 
-function payByCard(): void {
-  haptic.tap()
+function payByCard(tariff: Tariff): void {
+  haptic.tap('medium')
   store.tariffOpen = false
-  openTelegramLink(`https://t.me/${BOT_USERNAME}`)
+  const bot = store.profile?.botUsername || BOT_USERNAME
+  openTelegramLink(`https://t.me/${bot}?start=buy_${tariff.key}`)
 }
 
 function shareReferral(): void {
@@ -158,6 +160,7 @@ watch(
       :tariffs="store.tariffs"
       :credits="store.totalCredits"
       :paying="store.paying"
+      :providers="store.profile?.paymentProviders ?? []"
       @close="store.tariffOpen = false"
       @buy="store.buy"
       @pay-by-card="payByCard"

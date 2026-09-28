@@ -9,7 +9,7 @@ from sqlalchemy import event, func, make_url, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from database.models import Base, GenerationHistory, Transaction, User, UserBalance, utcnow
+from database.models import Base, GeneratedFile, GenerationHistory, Transaction, User, UserBalance, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -419,6 +419,80 @@ class Database:
                 .limit(limit)
             )
             return list(rows)
+
+    async def get_generation(self, generation_id: int) -> GenerationHistory | None:
+        async with self.session() as s:
+            return await s.get(GenerationHistory, generation_id)
+
+    async def list_generations_with_files(
+        self, telegram_id: int, limit: int = 20
+    ) -> list[tuple[GenerationHistory, list[GeneratedFile]]]:
+        """Latest successful or running generations of a user together with their files."""
+        async with self.session() as s:
+            gens = list(
+                await s.scalars(
+                    select(GenerationHistory)
+                    .where(
+                        GenerationHistory.user_id == telegram_id,
+                        GenerationHistory.status.in_(("success", "processing")),
+                    )
+                    .order_by(GenerationHistory.id.desc())
+                    .limit(limit)
+                )
+            )
+            if not gens:
+                return []
+            files = await s.scalars(
+                select(GeneratedFile)
+                .where(GeneratedFile.generation_id.in_([g.id for g in gens]))
+                .order_by(GeneratedFile.created_at)
+            )
+            by_gen: dict[int, list[GeneratedFile]] = {}
+            for f in files:
+                by_gen.setdefault(f.generation_id, []).append(f)
+        return [(g, by_gen.get(g.id, [])) for g in gens]
+
+    # ------------------------------------------------------------------ files
+
+    async def add_generated_file(
+        self,
+        file_id: str,
+        generation_id: int,
+        user_id: int,
+        name: str,
+        file_format: str,
+        size_bytes: int,
+        tg_file_id: str | None,
+    ) -> GeneratedFile:
+        async with self.session() as s, s.begin():
+            f = GeneratedFile(
+                id=file_id,
+                generation_id=generation_id,
+                user_id=user_id,
+                name=name[:255],
+                file_format=file_format,
+                size_bytes=size_bytes,
+                tg_file_id=tg_file_id,
+            )
+            s.add(f)
+            return f
+
+    async def get_generated_file(self, file_id: str) -> GeneratedFile | None:
+        async with self.session() as s:
+            return await s.get(GeneratedFile, file_id)
+
+    async def list_generated_files(self, generation_id: int) -> list[GeneratedFile]:
+        async with self.session() as s:
+            rows = await s.scalars(
+                select(GeneratedFile)
+                .where(GeneratedFile.generation_id == generation_id)
+                .order_by(GeneratedFile.created_at)
+            )
+            return list(rows)
+
+    async def set_file_tg_id(self, file_id: str, tg_file_id: str) -> None:
+        async with self.session() as s, s.begin():
+            await s.execute(update(GeneratedFile).where(GeneratedFile.id == file_id).values(tg_file_id=tg_file_id))
 
     async def get_global_stats(self) -> dict[str, int]:
         today = _today_start_utc()

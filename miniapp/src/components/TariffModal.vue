@@ -13,14 +13,18 @@ const props = defineProps<{
   credits: number
   /** `${tariffKey}:${provider}` of the payment being created. */
   paying: string | null
+  /** Online providers enabled in the backend. */
+  providers: PaymentProvider[]
 }>()
 
 const emit = defineEmits<{
   close: []
   buy: [tariff: Tariff, provider: PaymentProvider]
-  'pay-by-card': []
+  'pay-by-card': [tariff: Tariff]
   referral: []
 }>()
+
+const hasOnline = computed(() => props.providers.length > 0)
 
 const selectedKey = ref<string>('')
 
@@ -126,8 +130,9 @@ function isPaying(provider: PaymentProvider): boolean {
         </button>
       </div>
 
-      <div class="mt-5 grid grid-cols-2 gap-2.5">
+      <div v-if="hasOnline" class="mt-5 grid gap-2.5" :class="providers.length > 1 ? 'grid-cols-2' : 'grid-cols-1'">
         <button
+          v-if="providers.includes('payme')"
           type="button"
           class="pressable flex h-13 items-center justify-center gap-2 rounded-2xl bg-[#00BAC7] text-[16px] font-bold text-white shadow-lg shadow-[#00BAC7]/25 disabled:opacity-60"
           :disabled="!selected || !!paying"
@@ -137,6 +142,7 @@ function isPaying(provider: PaymentProvider): boolean {
           <template v-else>Payme</template>
         </button>
         <button
+          v-if="providers.includes('click')"
           type="button"
           class="pressable flex h-13 items-center justify-center gap-2 rounded-2xl bg-[#0073FF] text-[16px] font-bold text-white shadow-lg shadow-[#0073FF]/25 disabled:opacity-60"
           :disabled="!selected || !!paying"
@@ -149,12 +155,22 @@ function isPaying(provider: PaymentProvider): boolean {
 
       <button
         type="button"
-        class="pressable mt-2.5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-app-text/[0.06] text-[15px] font-semibold"
-        @click="emit('pay-by-card')"
+        class="pressable flex w-full items-center justify-center gap-2 rounded-2xl font-semibold disabled:opacity-60"
+        :class="
+          hasOnline
+            ? 'mt-2.5 h-12 bg-app-text/[0.06] text-[15px]'
+            : 'bg-brand-gradient mt-5 h-14 text-[16px] text-white shadow-xl shadow-brand-blue/30'
+        "
+        :disabled="!selected"
+        @click="selected && emit('pay-by-card', selected)"
       >
-        <CreditCard class="size-4" />
-        Karta orqali (chek yuborish)
+        <CreditCard class="size-5" />
+        Karta orqali to‘lash
+        <template v-if="selected"> · {{ formatUzs(selected.priceUzs) }}</template>
       </button>
+      <p v-if="!hasOnline" class="mt-2 text-center text-[12px] text-app-hint">
+        Bot chatida karta raqami chiqadi — to‘lab, chek skrinshotini yuborasiz. Admin tasdiqlagach kreditlar qo‘shiladi.
+      </p>
 
       <button
         type="button"

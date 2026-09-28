@@ -443,6 +443,11 @@ no Markdown, no references section. Return paragraphs as separate strings.
                     logger.debug("progress callback failed", exc_info=True)
             return paragraphs
 
+        if on_progress is not None:
+            try:
+                await on_progress(0, total)
+            except Exception:
+                logger.debug("progress callback failed", exc_info=True)
         results = await asyncio.gather(*(run(prompt) for prompt, _, _ in jobs))
 
         content = ReferatContent(title=title, chapters=chapters, references=references)

@@ -4,7 +4,15 @@ import { ChevronDown, ChevronLeft, FileDown, FileText, Lightbulb, Presentation, 
 import SegmentedControl from './ui/SegmentedControl.vue'
 import { TOPIC_MAX, TOPIC_MIN, useAppStore } from '@/stores/app'
 import { haptic, hasNativeMainButton } from '@/services/telegram'
-import type { Language, PdfSource, PresentationStyle, ReferatSize, SegmentOption, SlideCount } from '@/types'
+import type {
+  Language,
+  PdfSource,
+  PresentationStyle,
+  ReferatSize,
+  SegmentOption,
+  SlideCount,
+  WorkType,
+} from '@/types'
 import { DOC_TYPE_LABELS } from '@/utils/format'
 
 const store = useAppStore()
@@ -31,6 +39,17 @@ const styleOptions: SegmentOption<PresentationStyle>[] = [
 const sizeOptions: SegmentOption<ReferatSize>[] = [
   { value: 'short', label: 'Qisqa', hint: '5–7 bet' },
   { value: 'standard', label: 'Standart', hint: '10–12 bet' },
+]
+
+const workTypeOptions: SegmentOption<WorkType>[] = [
+  { value: 'referat', label: 'Referat' },
+  { value: 'mustaqil', label: 'Mustaqil ish' },
+]
+
+const titleFields: { key: 'institution' | 'student' | 'teacher'; placeholder: string; max: number }[] = [
+  { key: 'institution', placeholder: 'Muassasa nomi (masalan: TDIU)', max: 200 },
+  { key: 'student', placeholder: 'Bajardi: talaba F.I.Sh., guruh', max: 120 },
+  { key: 'teacher', placeholder: 'Qabul qildi: o‘qituvchi F.I.Sh.', max: 120 },
 ]
 
 const sourceOptions: SegmentOption<PdfSource>[] = [
@@ -160,7 +179,10 @@ function toggleExtra(): void {
     </template>
 
     <!-- Referat options -->
-    <SegmentedControl v-if="showReferatOptions" v-model="form.size" :options="sizeOptions" label="Hajmi" />
+    <template v-if="showReferatOptions">
+      <SegmentedControl v-model="form.workType" :options="workTypeOptions" label="Ish turi" />
+      <SegmentedControl v-model="form.size" :options="sizeOptions" label="Hajmi" />
+    </template>
 
     <SegmentedControl v-model="form.language" :options="languageOptions" label="Til" />
 
@@ -174,23 +196,18 @@ function toggleExtra(): void {
       >
         <span>
           <span class="block text-[15px] font-medium">Titul varag‘i ma’lumotlari</span>
-          <span class="block text-[12px] text-app-hint">Ixtiyoriy: muallif va fan nomi</span>
+          <span class="block text-[12px] text-app-hint">Ixtiyoriy: muassasa, talaba va o‘qituvchi</span>
         </span>
         <ChevronDown class="size-5 text-app-hint transition-transform" :class="showExtra && 'rotate-180'" />
       </button>
       <div v-if="showExtra" class="space-y-3 px-4 pb-4">
         <input
-          v-model="form.author"
+          v-for="field in titleFields"
+          :key="field.key"
+          v-model="form[field.key]"
           type="text"
-          maxlength="80"
-          placeholder="Muallif F.I.Sh."
-          class="w-full rounded-xl bg-app-text/[0.05] px-3.5 py-3 text-app-text outline-none placeholder:text-app-hint/70 focus:ring-2 focus:ring-brand-blue/50"
-        />
-        <input
-          v-model="form.subject"
-          type="text"
-          maxlength="80"
-          placeholder="Fan nomi"
+          :maxlength="field.max"
+          :placeholder="field.placeholder"
           class="w-full rounded-xl bg-app-text/[0.05] px-3.5 py-3 text-app-text outline-none placeholder:text-app-hint/70 focus:ring-2 focus:ring-brand-blue/50"
         />
       </div>

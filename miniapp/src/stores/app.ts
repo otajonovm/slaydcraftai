@@ -17,6 +17,7 @@ import {
   type ReferatSize,
   type SlideCount,
   type Tariff,
+  type WorkType,
 } from '@/types'
 
 export type View = 'home' | 'form'
@@ -28,8 +29,10 @@ export interface FormState {
   style: PresentationStyle
   size: ReferatSize
   source: PdfSource
-  author: string
-  subject: string
+  workType: WorkType
+  institution: string
+  student: string
+  teacher: string
 }
 
 export const TOPIC_MIN = 3
@@ -56,8 +59,10 @@ export const useAppStore = defineStore('app', () => {
     style: 'business',
     size: 'standard',
     source: 'presentation',
-    author: '',
-    subject: '',
+    workType: 'referat',
+    institution: '',
+    student: '',
+    teacher: '',
   })
 
   const job = ref<Job | null>(null)
@@ -98,11 +103,21 @@ export const useAppStore = defineStore('app', () => {
           ...base,
           type: 'referat',
           size: form.size,
-          author: form.author.trim() || undefined,
-          subject: form.subject.trim() || undefined,
+          workType: form.workType,
+          institution: form.institution.trim() || undefined,
+          student: form.student.trim() || undefined,
+          teacher: form.teacher.trim() || undefined,
         }
       case 'pdf':
-        return { ...base, type: 'pdf', source: form.source, slides: form.slides, style: form.style, size: form.size }
+        return {
+          ...base,
+          type: 'pdf',
+          source: form.source,
+          slides: form.slides,
+          style: form.style,
+          size: form.size,
+          workType: form.workType,
+        }
     }
   }
 

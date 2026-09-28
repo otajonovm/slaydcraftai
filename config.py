@@ -88,6 +88,12 @@ class Settings:
     payme_merchant_id: str
     payme_secret_key: str
 
+    # Mini App / HTTP API
+    webapp_url: str
+    api_port: int
+    api_cors_origins: tuple[str, ...]
+    files_dir: Path
+
 
 def load_settings() -> Settings:
     bot_token = _str("BOT_TOKEN")
@@ -131,8 +137,14 @@ def load_settings() -> Settings:
         payme_enabled=_bool("PAYME_ENABLED"),
         payme_merchant_id=_str("PAYME_MERCHANT_ID"),
         payme_secret_key=_str("PAYME_SECRET_KEY"),
+        webapp_url=_str("WEBAPP_URL").rstrip("/"),
+        # Heroku assigns PORT to web dynos.
+        api_port=_int("PORT", _int("API_PORT", 8080)),
+        api_cors_origins=_str_tuple(_str("API_CORS_ORIGINS", "*")),
+        files_dir=_path(_str("FILES_DIR", "data/files")),
     )
     settings.temp_dir.mkdir(parents=True, exist_ok=True)
+    settings.files_dir.mkdir(parents=True, exist_ok=True)
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
     return settings
 

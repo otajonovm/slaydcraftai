@@ -30,6 +30,7 @@ from bot.utils import (
     JOB_SEMAPHORE,
     UserText,
     job_workspace,
+    record_sent_file,
     safe_edit,
     safe_filename,
     send_charge_report,
@@ -329,12 +330,14 @@ async def generate(
                 f"📚 {len(content.chapters)} bob, {sections} fasl, {len(content.references)} ta manba\n\n"
                 "✏️ Tahrirlanadigan Word fayli"
             )
-            await bot.send_document(chat_id, FSInputFile(docx_path, filename=docx_path.name), caption=caption)
+            sent = await bot.send_document(chat_id, FSInputFile(docx_path, filename=docx_path.name), caption=caption)
+            await record_sent_file(db, generation_id, user.id, sent, docx_path)
             if pdf_path:
-                await bot.send_document(
+                sent = await bot.send_document(
                     chat_id, FSInputFile(pdf_path, filename=pdf_path.name),
                     caption="🖨 Chop etishga tayyor PDF versiya",
                 )
+                await record_sent_file(db, generation_id, user.id, sent, pdf_path)
 
         await db.finish_generation(generation_id, success=True)
         await safe_edit(status, header + "✅ Referat tayyor!")

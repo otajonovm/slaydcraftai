@@ -14,6 +14,8 @@ export type SlideCount = 8 | 10 | 15
 /** Length of a referat (matches the bot: short ~5-7 pages, standard ~10-12 pages). */
 export type ReferatSize = 'short' | 'standard'
 
+export type WorkType = 'referat' | 'mustaqil'
+
 /** Which content a "PDF document" is built from. */
 export type PdfSource = 'presentation' | 'referat'
 
@@ -43,6 +45,10 @@ export interface Profile {
   balance: Balance
   referralLink: string
   referrals: number
+  /** Online providers that are switched on in the backend (card payment via the bot is always available). */
+  paymentProviders: PaymentProvider[]
+  botUsername?: string
+  supportUsername?: string | null
 }
 
 // ---------------------------------------------------------------- generation requests
@@ -61,9 +67,11 @@ export interface PresentationRequest extends GenerationBase {
 export interface ReferatRequest extends GenerationBase {
   type: 'referat'
   size: ReferatSize
-  /** Optional author details for the title page. */
-  author?: string
-  subject?: string
+  workType: WorkType
+  /** Optional title-page details. */
+  institution?: string
+  student?: string
+  teacher?: string
 }
 
 export interface PdfRequest extends GenerationBase {
@@ -72,6 +80,7 @@ export interface PdfRequest extends GenerationBase {
   slides: SlideCount
   style: PresentationStyle
   size: ReferatSize
+  workType: WorkType
 }
 
 export type GenerationRequest = PresentationRequest | ReferatRequest | PdfRequest

@@ -168,6 +168,8 @@ function createDemoApi(): SlideCraftApi {
     balance: { credits: 0, freeCredits: 1, balanceUzs: 0 },
     referralLink: `https://t.me/${BOT_USERNAME}?start=ref_${tgUser?.id ?? 1}`,
     referrals: 0,
+    paymentProviders: ['payme', 'click'],
+    botUsername: BOT_USERNAME,
   }
 
   const jobs = new Map<string, { startedAt: number; request: GenerationRequest; isFree: boolean }>()

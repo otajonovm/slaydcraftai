@@ -5,15 +5,16 @@ from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 
+from bot.handlers.billing import start_purchase
 from bot.keyboards.inline import CANCEL_CB
 from bot.keyboards.reply import BTN_CANCEL, BTN_HELP, BTN_PROFILE, main_menu_kb
 from bot.states import BillingStates
 from bot.utils import ACTIVE_JOBS, ensure_user, safe_edit, support_line
 from config import settings
 from database import Database
-from services.pricing import PACKAGES, fmt_uzs
+from services.pricing import PACKAGES, fmt_uzs, get_package
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,13 @@ async def cmd_start(message: Message, state: FSMContext, command: CommandObject,
             except TelegramAPIError:
                 logger.info("Cannot notify referrer %s", referrer_id)
 
+    args = (command.args or "").strip()
+    if args.startswith("buy_"):
+        package = get_package(args[4:])
+        if package is not None:
+            await start_purchase(message, state, db, package)
+            return
+
     name = escape(tg.first_name or "do'st")
     if created and settings.free_credits_on_start > 0:
         gift = f"🎁 Sizga {settings.free_credits_on_start} ta <b>BEPUL</b> sinov imkoniyati taqdim etildi!\n\n"
@@ -94,6 +102,13 @@ async def cmd_start(message: Message, state: FSMContext, command: CommandObject,
         "Quyidagi bo'limlardan birini tanlang:",
         reply_markup=main_menu_kb(),
     )
+    if settings.webapp_url:
+        await message.answer(
+            "📱 Yoki qulay <b>ilova</b> orqali tayyorlang:",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="📱 Ilovani ochish", web_app=WebAppInfo(url=settings.webapp_url))
+            ]]),
+        )
 
 
 @router.message(Command("help"))

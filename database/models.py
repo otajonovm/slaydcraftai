@@ -79,6 +79,23 @@ class GenerationHistory(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class GeneratedFile(Base):
+    """A file produced by a generation; the Telegram file_id keeps it downloadable after dyno restarts."""
+
+    __tablename__ = "generated_files"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    generation_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("generations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_format: Mapped[str] = mapped_column(String(8), nullable=False)  # pptx, docx, pdf
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    tg_file_id: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
 @dataclass(frozen=True, slots=True)
 class UserBalance:
     credits: int

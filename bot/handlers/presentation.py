@@ -17,6 +17,7 @@ from bot.utils import (
     JOB_SEMAPHORE,
     UserText,
     job_workspace,
+    record_sent_file,
     safe_edit,
     safe_filename,
     send_charge_report,
@@ -174,12 +175,14 @@ async def generate(
                 f"🔢 {len(content.slides)} ta slayd • {THEMES[data['theme']]}\n\n"
                 "✏️ Tahrirlanadigan PowerPoint fayli (ma'ruzachi izohlari bilan)"
             )
-            await bot.send_document(chat_id, FSInputFile(pptx_path, filename=pptx_path.name), caption=caption)
+            sent = await bot.send_document(chat_id, FSInputFile(pptx_path, filename=pptx_path.name), caption=caption)
+            await record_sent_file(db, generation_id, user.id, sent, pptx_path)
             if pdf_path:
-                await bot.send_document(
+                sent = await bot.send_document(
                     chat_id, FSInputFile(pdf_path, filename=pdf_path.name),
                     caption="🖨 Chop etishga tayyor PDF versiya",
                 )
+                await record_sent_file(db, generation_id, user.id, sent, pdf_path)
 
         await db.finish_generation(generation_id, success=True)
         await safe_edit(status, header + "✅ Taqdimot tayyor!")

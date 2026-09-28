@@ -101,24 +101,45 @@ async def open_billing(callback: CallbackQuery, state: FSMContext, db: Database)
 # ------------------------------------------------------------------ purchase
 
 
+async def _create_manual_order(
+    db: Database, tg_user, package: Package, state: FSMContext
+) -> tuple[Transaction, UserBalance]:
+    balance = await _load_balance(db, tg_user)
+    await db.cancel_unpaid_transactions(tg_user.id)
+    tx = await db.create_transaction(tg_user.id, package.key, package.price, package.credits, provider="manual")
+    await state.set_state(BillingStates.waiting_receipt)
+    await state.update_data(tx_id=tx.id)
+    return tx, balance
+
+
+async def start_purchase(message: Message, state: FSMContext, db: Database, package: Package) -> None:
+    """Shows card requisites for a package; used by the Mini App deep link `/start buy_<package>`."""
+    try:
+        tx, balance = await _create_manual_order(db, message.from_user, package, state)
+    except Exception:
+        logger.exception("Failed to create transaction for %s", message.from_user.id)
+        await message.answer("⚠️ Xatolik yuz berdi, qayta urinib ko'ring.", reply_markup=main_menu_kb())
+        return
+    await message.answer(
+        requisites_text(package, tx, balance),
+        reply_markup=payment_kb(tx.id, package.key, balance.balance_uzs >= package.price),
+    )
+    await message.answer("📸 Chek skrinshotini yuboring yoki bekor qiling:", reply_markup=cancel_kb())
+
+
 @router.callback_query(F.data.startswith("buy:pkg:"))
 async def choose_package(callback: CallbackQuery, state: FSMContext, db: Database) -> None:
     package = get_package(callback.data.rsplit(":", 1)[1])
     if package is None:
         await callback.answer("Bunday tarif mavjud emas", show_alert=True)
         return
-    user_id = callback.from_user.id
     try:
-        balance = await _load_balance(db, callback.from_user)
-        await db.cancel_unpaid_transactions(user_id)
-        tx = await db.create_transaction(user_id, package.key, package.price, package.credits, provider="manual")
+        tx, balance = await _create_manual_order(db, callback.from_user, package, state)
     except Exception:
-        logger.exception("Failed to create transaction for %s", user_id)
+        logger.exception("Failed to create transaction for %s", callback.from_user.id)
         await callback.answer("⚠️ Xatolik yuz berdi, qayta urinib ko'ring.", show_alert=True)
         return
 
-    await state.set_state(BillingStates.waiting_receipt)
-    await state.update_data(tx_id=tx.id)
     await callback.answer()
     await safe_edit(
         callback.message,

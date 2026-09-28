@@ -7,8 +7,10 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand, BotCommandScopeChat
+from aiogram.types import BotCommand, BotCommandScopeChat, MenuButtonWebApp, WebAppInfo
+from aiohttp import web
 
+from api import JobManager, create_app
 from bot.handlers import setup_routers
 from config import settings
 from database import Database, Transaction
@@ -80,6 +82,13 @@ async def main() -> None:
     dp["payments"] = payments
     dp.include_router(setup_routers())
 
+    jobs = JobManager(bot, db, gemini, pdf)
+    runner = web.AppRunner(create_app(bot, db, jobs, payments), access_log=None)
+    await runner.setup()
+    await web.TCPSite(runner, "0.0.0.0", settings.api_port).start()
+    logger.info("HTTP API listening on port %s", settings.api_port)
+    cache_cleaner = asyncio.create_task(jobs.cleanup_cache_forever())
+
     try:
         me = await bot.get_me()
         logger.info("Bot started: @%s (id=%s)", me.username, me.id)
@@ -89,9 +98,19 @@ async def main() -> None:
                 await bot.set_my_commands(ADMIN_COMMANDS, scope=BotCommandScopeChat(chat_id=admin_id))
             except TelegramAPIError:
                 logger.warning("Cannot set admin commands for %s (has the admin started the bot?)", admin_id)
+        if settings.webapp_url:
+            try:
+                await bot.set_chat_menu_button(
+                    menu_button=MenuButtonWebApp(text="📱 Ilova", web_app=WebAppInfo(url=settings.webapp_url))
+                )
+            except TelegramAPIError:
+                logger.warning("Cannot set the Mini App menu button (WEBAPP_URL must be https)")
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
+        cache_cleaner.cancel()
+        await jobs.shutdown()
+        await runner.cleanup()
         await db.close()
         await bot.session.close()
         logger.info("Bot stopped")
