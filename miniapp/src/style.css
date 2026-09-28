@@ -1,0 +1,166 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Palette follows the Telegram theme (--tg-theme-* variables are injected by telegram-web-app.js),
+ * with fallbacks for running in a regular browser.
+ */
+:root {
+  --app-bg: var(--tg-theme-secondary-bg-color, #f2f4f8);
+  --app-card: var(--tg-theme-section-bg-color, #ffffff);
+  --app-text: var(--tg-theme-text-color, #0f172a);
+  --app-hint: var(--tg-theme-hint-color, #64748b);
+  --app-link: var(--tg-theme-link-color, #2563eb);
+  --app-danger: var(--tg-theme-destructive-text-color, #e11d48);
+  --app-border: color-mix(in srgb, var(--app-text) 8%, transparent);
+  --safe-top: var(--tg-content-safe-area-inset-top, 0px);
+  --safe-bottom: max(var(--tg-safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
+}
+
+.dark {
+  --app-bg: var(--tg-theme-secondary-bg-color, #0b0f1a);
+  --app-card: var(--tg-theme-section-bg-color, #151b2b);
+  --app-text: var(--tg-theme-text-color, #f1f5f9);
+  --app-hint: var(--tg-theme-hint-color, #8b95a8);
+  --app-link: var(--tg-theme-link-color, #60a5fa);
+  --app-border: color-mix(in srgb, var(--app-text) 10%, transparent);
+}
+
+@theme inline {
+  --color-brand-blue: #2563eb;
+  --color-brand-violet: #7c3aed;
+  --color-app-bg: var(--app-bg);
+  --color-app-card: var(--app-card);
+  --color-app-text: var(--app-text);
+  --color-app-hint: var(--app-hint);
+  --color-app-link: var(--app-link);
+  --color-app-danger: var(--app-danger);
+  --color-app-border: var(--app-border);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+@utility glass {
+  background: color-mix(in srgb, var(--app-card) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--app-border);
+}
+
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+}
+
+@utility text-brand-gradient {
+  background-image: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility pressable {
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease;
+  -webkit-tap-highlight-color: transparent;
+  &:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: calc(var(--safe-bottom) + 1rem);
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--app-bg);
+    color: var(--app-text);
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: var(--tg-viewport-stable-height, 100dvh);
+  }
+  button {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input,
+  textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+}
+
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes skeleton {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton {
+  background: var(--app-border);
+  animation: skeleton 1.4s ease-in-out infinite;
+}
+
+/* Shared transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 200ms ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.sheet-enter-active,
+.sheet-leave-active {
+  transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-enter-from,
+.sheet-leave-to {
+  transform: translateY(100%);
+}
+
+.view-enter-active,
+.view-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.view-enter-from {
+  opacity: 0;
+  transform: translateX(16px);
+}
+.view-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
